@@ -213,20 +213,42 @@ def DisplayCategory(request):
 def Graph(request, itemId):
     try:
         item = Items.objects.get(id=itemId)
+        
     except Items.DoesNotExist:
         return JsonResponse({'error': 'Item not found'}, status=404)
+    try:
+        bids = Bids.objects.filter(itemId=itemId)
+        bid_ids = [bid.id for bid in bids]
+        amounts = [bid.amount for bid in bids]
+        data = {'bid_ids': bid_ids, 'amounts': amounts}
+        return JsonResponse({'item': {'id': item.id, 'name': item.name}, 'graph_data': data})
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)})
+        
 
-    bids = Bids.objects.filter(itemId=itemId)
-    bid_ids = [bid.id for bid in bids]
-    amounts = [bid.amount for bid in bids]
+def PieChart(request):
+    userId = request.session.get('userId')  # Adjust the key based on your session structure
+    if not userId:
+        return JsonResponse({'error': 'User not authenticated.'}, status=401)
+    try: 
+        payments = Payments.objects.filter(userId=userId)
+        num_categories = 5  # Update num_categories based on the number of actual categories
+        category_sums = [0] * num_categories `
+        category_names = [''] * num_categories
+        for payment in payments:
+            item = Items.objects.get(itemId=payment.itemId)
+            category = Items.objects.get(categoryName=item.categoryName)
+            category_sums[category.categoryId]+=payment.amount
+            category_names[category.categoryId]=category.categoryName
+        
+        user_purchases = dict(zip(category_names, category_sums))
+        return JsonResponse({'user_purchases': user_purchases})
 
-# def PieChart(request, userId):
-#     try: 
-#         bids = list(Bids.objects.get(
+    except Exception as e:
+        return JsonResponse({'error': str(e)})
+
 
 def get_user(request):
     user=request.session.get('userId')
     return JsonResponse({"user":user,"message":"success"})
-
-    data = {'bid_ids': bid_ids, 'amounts': amounts}
-    return JsonResponse({'item': {'id': item.id, 'name': item.name}, 'graph_data': data})
