@@ -66,9 +66,9 @@ def initiateAuction(request):
             item = Items.objects.create(**item_data)
             return JsonResponse({'success': 'Auction initiated successfully'})
         except Exception as e:
-            return JsonResponse({'error': str(e)}, status=500)
+            return JsonResponse({'error': str(e)})
 
-    return JsonResponse({'status': 'error', 'message': 'Invalid request method'}, status=400)
+    return JsonResponse({'error': 'Invalid request method'})
 
 #assumption : itemId is present in url. If it is provided by frontend, change accordingly.
 def eraseBid(request, itemId):
@@ -77,7 +77,7 @@ def eraseBid(request, itemId):
         user_id = request.session.get('userId') #adjust key based on how session data is structured
 
         if not user_id:
-            return JsonResponse({'error': 'User not authenticated.'}, status=401)
+            return JsonResponse({'error': 'User not authenticated.'})
 
         if not TimeBuffer(itemId):
             return JsonResponse({'error': 'Cannot erase bid. Please try again in a few seconds.'}, status=400)
@@ -88,7 +88,7 @@ def eraseBid(request, itemId):
         try:
             bid = Bids.objects.get(bidId=bid_id)
         except Bids.DoesNotExist:
-            return JsonResponse({'error': 'Bid does not exist.'}, status=400)
+            return JsonResponse({'error': 'Bid does not exist.'})
             
         if user_id not in bid.contribution.keys():
             return JsonResponse({'error': 'You do not have permission to erase this bid.'}, status=403)
@@ -96,7 +96,7 @@ def eraseBid(request, itemId):
         bid.delete()
         return JsonResponse({'success': 'Bid erased successfully.'})
 
-    return JsonResponse({'error': 'Invalid request method.'}, status=400)
+    return JsonResponse({'error': 'Invalid request method.'})
 
 def placeBid(request, itemId):
     if request.method == 'POST':
@@ -105,7 +105,7 @@ def placeBid(request, itemId):
             user_amounts = data.get('user_amounts', None)
             curr_user_id = request.session.get('userId')  # Adjust the key based on your session structure
             if not curr_user_id:
-                return JsonResponse({'error': 'User not authenticated.'}, status=401)
+                return JsonResponse({'error': 'User not authenticated.'})
 
             if user_amounts is None:
                 return JsonResponse({'error': 'Invalid data. Missing user_amounts field.'}, status=400)
@@ -120,7 +120,7 @@ def placeBid(request, itemId):
                 return JsonResponse({'error': 'Cannot place bid. Please try again in a few seconds.'}, status=400)
             
             if not AuctionInProgress(itemId):
-                return JsonResponse({'error': 'Cannot place bid. Auction has ended.'}, status=400)
+                return JsonResponse({'error': 'Cannot place bid. Auction has ended.'})
 
             try:
                 item = Items.objects.get(id=itemId)
@@ -131,17 +131,17 @@ def placeBid(request, itemId):
                 except UserNotFoundException as e:
                     error_message = str(e)
                     bid.delete()
-                    return JsonResponse({'error': error_message}, status=400)
+                    return JsonResponse({'error': error_message})
 
                 except InsufficientBalanceException as e:
                     error_message = str(e)
                     bid.delete()
-                    return JsonResponse({'error': error_message}, status=400)
+                    return JsonResponse({'error': error_message})
 
                 except InsufficientAmountException as e:
                     error_message = str(e)
                     bid.delete()
-                    return JsonResponse({'error': error_message}, status=400)
+                    return JsonResponse({'error': error_message})
                 
                 SendNotif(bid)
                 SendConfirmationNotif(bid)
@@ -161,12 +161,12 @@ def placeBid(request, itemId):
                 return JsonResponse(response_data)
 
             except Items.DoesNotExist:
-                return JsonResponse({'error': 'Item does not exist.'}, status=400)
+                return JsonResponse({'error': 'Item does not exist.'})
 
         except json.JSONDecodeError:
-            return JsonResponse({'error': 'Invalid JSON data.'}, status=400)
+            return JsonResponse({'error': 'Invalid JSON data.'})
 
-    return JsonResponse({'error': 'Invalid request method.'}, status=405)
+    return JsonResponse({'error': 'Invalid request method.'})
 
 def DisplayBids(request, itemId):
     try:
@@ -175,7 +175,7 @@ def DisplayBids(request, itemId):
         bid_data = [{'bidId': bid.bidId, 'itemId': bid.itemId, 'bidPlacedTime': bid.bidPlacedTime, 'amount': float(bid.amount)} for bid in bids]
         return JsonResponse({'bids': bid_data})
     except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
+        return JsonResponse({'error': str(e)})
 
 def DisplayAuctions(request, categoryName):
     try:
@@ -194,7 +194,7 @@ def DisplayAuctions(request, categoryName):
         return JsonResponse({'auctions': auctions_data})
     
     except Items.DoesNotExist:
-        return JsonResponse({'error': 'Category not found'}, status=404)
+        return JsonResponse({'error': 'Category not found'})
 
 def DisplayCategory(request):
     categories = category.objects.all()
@@ -215,7 +215,7 @@ def Graph(request, itemId):
         item = Items.objects.get(id=itemId)
         
     except Items.DoesNotExist:
-        return JsonResponse({'error': 'Item not found'}, status=404)
+        return JsonResponse({'error': 'Item not found'})
     try:
         bids = Bids.objects.filter(itemId=itemId)
         bid_ids = [bid.id for bid in bids]
@@ -230,7 +230,7 @@ def Graph(request, itemId):
 def PieChart(request):
     userId = request.session.get('userId')  # Adjust the key based on your session structure
     if not userId:
-        return JsonResponse({'error': 'User not authenticated.'}, status=401)
+        return JsonResponse({'error': 'User not authenticated.'})
     try: 
         payments = Payments.objects.filter(userId=userId)
         num_categories = 5  # Update num_categories based on the number of actual categories
