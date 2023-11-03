@@ -49,7 +49,7 @@ def initiateAuction(request):
     if request.method == 'POST':
         user_id = request.session.get('userId')
         if not user_id:
-            return JsonResponse({'error': 'User not authenticated.'}, status=401)
+            return JsonResponse({'error': 'User not authenticated.'})
         item_data = {
             'itemName': request.POST.get('item_name'),
             'description': request.POST.get('item_description'),
@@ -80,10 +80,10 @@ def eraseBid(request, itemId):
             return JsonResponse({'error': 'User not authenticated.'})
 
         if not TimeBuffer(itemId):
-            return JsonResponse({'error': 'Cannot erase bid. Please try again in a few seconds.'}, status=400)
+            return JsonResponse({'error': 'Cannot erase bid. Please try again in a few seconds.'})
 
         if not AuctionInProgress(itemId):
-            return JsonResponse({'error': 'Cannot erase bid. Auction has ended.'}, status=400)
+            return JsonResponse({'error': 'Cannot erase bid. Auction has ended.'})
 
         try:
             bid = Bids.objects.get(bidId=bid_id)
@@ -108,10 +108,10 @@ def placeBid(request, itemId):
                 return JsonResponse({'error': 'User not authenticated.'})
 
             if user_amounts is None:
-                return JsonResponse({'error': 'Invalid data. Missing user_amounts field.'}, status=400)
+                return JsonResponse({'error': 'Invalid data. Missing user_amounts field.'})
 
             if curr_user_id is None:
-                return JsonResponse({'error': 'Current user ID not found in session.'}, status=400)
+                return JsonResponse({'error': 'Current user ID not found in session.'})
 
             if curr_user_id not in user_amounts: #if user placing the bid is not one of the bidders in contribution
                 return JsonResponse({'error': 'Cannot place bid. You do not have permission to place this bid.'}, status=400)
@@ -123,8 +123,12 @@ def placeBid(request, itemId):
                 return JsonResponse({'error': 'Cannot place bid. Auction has ended.'})
 
             try:
-                item = Items.objects.get(id=itemId)
-                bid = Bids.objects.create(itemId=itemId, contribution=user_amounts)
+                item = Items.objects.get(itemId=itemId)
+                bid_data ={
+                    'itemId' : itemId,
+                    'contribution' : user_amounts,
+                }
+                bid = Bids.objects.create(**bid_data)
                 try:
                     CheckBid(bid)
                     
