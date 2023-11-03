@@ -1,4 +1,5 @@
 from django.shortcuts import render,redirect
+from django.views.decorators.csrf import csrf_exempt
 import json
 from Auction.exceptions import InsufficientBalanceException,UserNotFoundException,InsufficientAmountException
 from django.http import JsonResponse,HttpResponse
@@ -45,9 +46,11 @@ async def makePayment(request,itemId):
 def home(request):
     return JsonResponse("hello")
 
+@csrf_exempt
 def initiateAuction(request):
     if request.method == 'POST':
-        user_id = request.session.get('userId')
+        user_id = "1"
+        #user_id = request.session.get('userId')
         if not user_id:
             return JsonResponse({'error': 'User not authenticated.'})
         item_data = {
@@ -55,9 +58,9 @@ def initiateAuction(request):
             'description': request.POST.get('item_description'),
             'itemImage': request.POST.get('item_image'),
             'startingBid': request.POST.get('starting_bid'),
-            'auctionDuration': request.POST.get('auction_duration'),
+            'auctionEndTime': request.POST.get('auction_end_time'),
             'categoryName': request.POST.get('category_name'),
-            'auctionStartTime': timezone.now(),
+            'auctionStartTime': request.POST.get('auction_start_time'),
             'userId' : user_id,
             # Add other fields as needed
         }
@@ -71,10 +74,12 @@ def initiateAuction(request):
     return JsonResponse({'error': 'Invalid request method'})
 
 #assumption : itemId is present in url. If it is provided by frontend, change accordingly.
-def eraseBid(request, itemId):
+def eraseBid(request, categoryName, itemId):
     if request.method == 'POST':
-        bid_id = request.data.get('bidId')
-        user_id = request.session.get('userId') #adjust key based on how session data is structured
+        data = json.loads(request.body)
+        bid_id = data.get('bidId')
+        user_id = "2"
+        #user_id = request.session.get('userId') #adjust key based on how session data is structured
 
         if not user_id:
             return JsonResponse({'error': 'User not authenticated.'})
@@ -98,12 +103,13 @@ def eraseBid(request, itemId):
 
     return JsonResponse({'error': 'Invalid request method.'})
 
-def placeBid(request, itemId):
+def placeBid(request, categoryName, itemId):
     if request.method == 'POST':
         try:
             data = json.loads(request.body)
-            user_amounts = data.get('user_amounts', None)
-            curr_user_id = request.session.get('userId')  # Adjust the key based on your session structure
+            user_amounts = data.get('user_amounts')
+            curr_user_id = "1"
+            #curr_user_id = str(request.session.get('userId')) # Adjust the key based on your session structure
             if not curr_user_id:
                 return JsonResponse({'error': 'User not authenticated.'})
 
@@ -151,8 +157,8 @@ def placeBid(request, itemId):
                 SendConfirmationNotif(bid)
                 
                 for user_id in bid.contribution.keys():
-                    if user_id not in item.bidders.all():
-                        item.bidders.add(user_id)
+                    if user_id not in item.bidders:
+                        item.bidders.append(user_id)
 
                 # Send relevant data to the frontend
                 response_data = {
@@ -172,18 +178,27 @@ def placeBid(request, itemId):
 
     return JsonResponse({'error': 'Invalid request method.'})
 
-def DisplayBids(request, itemId):
+def DisplayBids(request, categoryName, itemId):
     try:
         user_id = request.session.get('userId')  # Adjust the key based on your session structure
-        bids = Bids.objects.filter(userId=user_id, itemId=itemId)
-        bid_data = [{'bidId': bid.bidId, 'itemId': bid.itemId, 'bidPlacedTime': bid.bidPlacedTime, 'amount': float(bid.amount)} for bid in bids]
-        return JsonResponse({'bids': bid_data})
+        bids = Bids.objects.filter(contribution__has_key=str(user_id), itemId=itemId)
+        bids_data = []
+        for bid in bids:
+            bid_data = {
+                'bidId': bid.bidId,
+                'itemId': bid.itemId,
+                'bidPlacedTime': bid.bidPlacedTime,
+                'amount': float(bid.amount) if hasattr(bid, 'amount') and bid.amount is not None else None,
+                # Add other fields as needed
+            }
+            bids_data.append(bid_data)
+        return JsonResponse({'bids': bids_data})
     except Exception as e:
         return JsonResponse({'error': str(e)})
 
 def DisplayAuctions(request, categoryName):
     try:
-        items = Items.objects.filter(categoryName=categoryName)
+        items = Items.objects.filter(categoryName__iexact=categoryName)
         auctions_data = []
         for item in items:
             auction_data = {
@@ -195,13 +210,13 @@ def DisplayAuctions(request, categoryName):
             }
             auctions_data.append(auction_data)
 
-        return JsonResponse({'auctions': auctions_data})
+        return JsonResponse({'categoryName': categoryName, 'auctions': auctions_data})
     
     except Items.DoesNotExist:
         return JsonResponse({'error': 'Category not found'})
 
 def DisplayCategory(request):
-    categories = category.objects.all()
+    categories = Category.objects.all()
     categories_data=[]
     for category in categories :
         category_data = {

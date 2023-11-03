@@ -1,5 +1,6 @@
 from django.core.mail import send_mail
 from django.utils import timezone
+from datetime import timedelta
 from Auction.models import Bids, Items, Users
 from web3 import Web3
 from Auction.exceptions import UserNotFoundException, InsufficientBalanceException, InsufficientAmountException
@@ -19,7 +20,7 @@ def SendNotif(bid):
         from_email = 'yourapp@example.com' #add our email id here
         recipient_list = [user.email]
 
-        send_mail(subject, message, from_email, recipient_list, fail_silently=False)
+        send_mail(subject, message, from_email, recipient_list, fail_silently=True)
 
 def SendConfirmationNotif(bid):
     item = Items.objects.get(itemId=bid.itemId)
@@ -35,7 +36,7 @@ def SendConfirmationNotif(bid):
         from_email = 'yourapp@example.com' #add our email id here
         recipient_list = [user.email]
 
-        send_mail(subject, message, from_email, recipient_list, fail_silently=False)
+        send_mail(subject, message, from_email, recipient_list, fail_silently=True)
 
 def TimeBuffer(itemId):
     item = Items.objects.get(itemId=itemId)
@@ -43,7 +44,7 @@ def TimeBuffer(itemId):
     if timezone.now()< item.timeBuffer:
         return False
     else:
-        item.timeBuffer = timezone.now() + timezone.timedelta(milliseconds=1000)
+        item.timeBuffer = timezone.now() + timedelta(days=0, seconds=1)
         item.save()
         return True
     
@@ -61,9 +62,10 @@ def CheckBalance(userId, bidAmount):
             return True
         else:
             return False
-
+    
     except Exception as e:
         return False
+    
 
 def MaxBid(itemId):
     bids_list = Bids.objects.filter(itemId=itemId)
@@ -72,10 +74,9 @@ def MaxBid(itemId):
 
 def CheckBid(bid):
     total_amount = sum(bid.contribution.values())
-    max_bid = MaxBid(bid.itemId).amount
     bid.amount = total_amount
     bid.save()
-
+    max_bid = MaxBid(bid.itemId)
     for userId, amount in bid.contribution.items():
         try:
             user = Users.objects.get(userId=userId)
@@ -83,16 +84,21 @@ def CheckBid(bid):
             raise UserNotFoundException(f"Error: Cannot place bid. User {userId} does not exist.")
 
         if not CheckBalance(userId, amount):
-            raise InsufficentBalanceException(f"Error: Cannot place bid. User {userId} has insufficient balance.")
-        
-    if total_amount <= max_bid:
-        raise InsufficentAmountException(f"Error: Cannot place bid. The bid amount is insufficient.")
+            raise InsufficientBalanceException(f"Error: Cannot place bid. User {userId} has insufficient balance.")    
+    
+    if total_amount < max_bid.amount:
+        raise InsufficientAmountException(f"Error: Cannot place bid. The bid amount is insufficient. Max bid is {max_bid}.")
+    
+    if total_amount == max_bid:
+        if bid.bidPlacedTime>max_bid.bidPlacedTime:
+           raise InsufficientAmountException(f"Error: Cannot place bid. The bid amount is insufficient. Max bid is {max_bid}.") 
+    
         
     return True
 
 def AuctionInProgress(itemId):
     item = Items.objects.get(itemId=itemId)
-    if item.auctionStartTime <= timezone.now() < item.auctionStartTime + item.auctionDuration:
+    if item.auctionStartTime <= timezone.now() < item.auctionEndTime:
         return True
     else:
         return False

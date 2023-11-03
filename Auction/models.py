@@ -1,7 +1,17 @@
 from django.db import models
+from django.utils import timezone
 
 # completed - change if necessary. 
 # cannot use postgre therefore no array implementation possible. For array we are using JsonField with list default
+
+def user_upload_path_items(instance, filename):
+    # Upload to "media/Category_<categoryName>/<filename>"
+    return f'Category_{instance.categoryName}/{filename}'
+
+def user_upload_path_category(instance, filename):
+     # Upload to "media/Category_<categoryId>/<filename>"
+     return f'Category_/{filename}'
+
 
 class Users(models.Model):
     userId = models.AutoField(primary_key=True)
@@ -23,13 +33,14 @@ class Items(models.Model):
     userId = models.IntegerField()
     description = models.CharField(max_length=255)
     auctionStartTime = models.DateTimeField()
-    auctionDuration = models.DateTimeField()
+    auctionEndTime = models.DateTimeField()
+    timeBuffer = models.DateTimeField(default = timezone.now())
     startingBid = models.PositiveBigIntegerField()
     saleStatus = models.BooleanField(default=False)
-    costPrice = models.PositiveIntegerField(null=True)
-    itemImage = models.ImageField() #add upload_to='folder where uploaded images will be stored'
+    costPrice = models.IntegerField(blank=True, null=True)
+    itemImage = models.ImageField(upload_to=user_upload_path_items) #add upload_to='folder where uploaded images will be stored'
     categoryName = models.CharField(max_length=40)
-    bidders = models.JSONField(default=list)  
+    bidders = models.JSONField(null=True, blank=True, default=list)  
 
     #method to get image url
     def get_image_url(self):
@@ -38,17 +49,17 @@ class Items(models.Model):
             return None
 
 class Bids(models.Model):
-    bidId = models.IntegerField(primary_key=True)
+    bidId = models.AutoField(primary_key=True)
     itemId = models.IntegerField()
     contribution = models.JSONField()
-    amount = models.DecimalField(max_digits=100, decimal_places=2)  
+    amount = models.DecimalField(max_digits=100, decimal_places=2, null=True,blank=True )  
     bidPlacedTime = models.DateTimeField(auto_now_add=True)
     
 class Category(models.Model):
     categoryId = models.AutoField(primary_key=True)
     categoryName = models.CharField(max_length=255)
     categoryDescription = models.CharField(max_length=255)
-    categoryImage = models.ImageField() #add upload_to='folder where uploaded images will be stored'
+    categoryImage = models.ImageField(upload_to=user_upload_path_category) #add upload_to='folder where uploaded images will be stored'
     
     #method to get image url
     def get_image_url(self):
