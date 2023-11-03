@@ -238,7 +238,7 @@ def PieChart(request):
     try: 
         payments = Payments.objects.filter(userId=userId)
         num_categories = 5  # Update num_categories based on the number of actual categories
-        category_sums = [0] * num_categories `
+        category_sums = [0] * num_categories 
         category_names = [''] * num_categories
         for payment in payments:
             item = Items.objects.get(itemId=payment.itemId)
