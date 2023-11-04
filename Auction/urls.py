@@ -5,7 +5,7 @@ from . import views
 urlpatterns=[
     #expected that userid can be fetched using the session
     path("home/",views.DisplayCategory), #tested and approved
-    path("home/intiate_auction/",views.initiateAuction), #tested and approved
+    path("home/initiate_auction/",views.initiateAuction), #tested and approved
     path("home/<str:categoryName>/",views.DisplayAuctions), #tested and approved
     path("home/<str:categoryName>/<int:itemId>/",views.DisplayBids), #tested and approved
     path("home/<str:categoryName>/<int:itemId>/place_bid/",views.placeBid), #tested and approved
